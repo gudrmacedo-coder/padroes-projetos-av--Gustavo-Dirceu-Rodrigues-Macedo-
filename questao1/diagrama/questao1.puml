@@ -1,0 +1,151 @@
+@startuml questao1
+title Questão 1 - Provisionamento Multinuvem (Singleton + Abstract Factory)
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+package "Configuração e auditoria  [SINGLETON]  (RNF04, RNF05)" {
+  class ConfiguracaoAmbiente <<Singleton>> {
+    - regiaoPadrao : String
+    - orcamentoMensal : BigDecimal
+    + {static} getInstance() : ConfiguracaoAmbiente
+    + getRegiaoPadrao() : String
+    + getOrcamentoMensal() : BigDecimal
+  }
+  note right of ConfiguracaoAmbiente
+    Lê config.properties uma única vez.
+    Papel: fornece região e orçamento a todos.
+  end note
+
+  class RegistroAuditoria <<Singleton>> {
+    - registros : List<String>
+    + {static} getInstance() : RegistroAuditoria
+    + registrar(ambiente, provedor, resultado, motivo)
+    + imprimirHistorico()
+  }
+  note right of RegistroAuditoria
+    Histórico único; métodos synchronized
+    para não perder registros em paralelo.
+  end note
+}
+
+package "Fábrica de recursos  [ABSTRACT FACTORY]  (RNF01, RNF02, RNF03, RNF06)" {
+  interface FabricaRecursosNuvem <<Abstract Factory>> {
+    + getProvedor() : String
+    + criarMaquinaVirtual() : MaquinaVirtual
+    + criarArmazenamento(gb : int) : Armazenamento
+    + criarFilaMensagens() : FilaMensagens
+    + custoHoraMaquina() : BigDecimal
+    + custoGbMes() : BigDecimal
+    + custoFilaMes() : BigDecimal
+    + atende(provedor : String) : boolean
+  }
+
+  class FabricaAws <<Concrete Factory>> {
+    - seqMaquinas : AtomicInteger
+    - seqArmazenamento : AtomicInteger
+    - seqFilas : AtomicInteger
+  }
+  class FabricaAzure <<Concrete Factory>> {
+    - seqMaquinas : AtomicInteger
+    - seqArmazenamento : AtomicInteger
+    - seqFilas : AtomicInteger
+  }
+
+  interface RecursoNuvem <<Abstract Product>> {
+    + getId() : String
+    + getProvedor() : String
+  }
+  interface MaquinaVirtual <<Abstract Product>>
+  interface Armazenamento <<Abstract Product>> {
+    + getGb() : int
+  }
+  interface FilaMensagens <<Abstract Product>>
+
+  abstract class RecursoBase {
+    - id : String
+    - provedor : String
+  }
+
+  class AwsMaquinaVirtual <<Concrete Product>>
+  class AwsArmazenamento <<Concrete Product>>
+  class AwsFilaMensagens <<Concrete Product>>
+  class AzureMaquinaVirtual <<Concrete Product>>
+  class AzureArmazenamento <<Concrete Product>>
+  class AzureFilaMensagens <<Concrete Product>>
+}
+
+package "Montagem e aplicação" {
+  class ProvisionadorAmbiente <<Client>> {
+    - fabrica : FabricaRecursosNuvem
+    + provisionar(s : SolicitacaoAmbiente)
+    - calcularCusto(s : SolicitacaoAmbiente) : BigDecimal
+    - recusar(s : SolicitacaoAmbiente, motivo : String)
+  }
+  note right of ProvisionadorAmbiente
+    Recebe a fábrica de fora (RNF02).
+    Não conhece classes concretas de provedor
+    e não usa if/switch para escolher provedor.
+  end note
+
+  class AmbienteNuvem {
+    - nome : String
+    - provedor : String
+    - regiao : String
+    - custoMensal : BigDecimal
+    + resumo() : String
+  }
+  note right of AmbienteNuvem
+    Construtor impede recursos de
+    provedores diferentes (RNF01).
+  end note
+
+  class SolicitacaoAmbiente {
+    - nome : String
+    - provedor : String
+    - quantidadeMaquinas : int
+    - gb : int
+  }
+
+  class Main <<Cliente>>
+}
+
+FabricaRecursosNuvem <|.. FabricaAws
+FabricaRecursosNuvem <|.. FabricaAzure
+FabricaAws ..> AwsMaquinaVirtual : <<cria>>
+FabricaAws ..> AwsArmazenamento : <<cria>>
+FabricaAws ..> AwsFilaMensagens : <<cria>>
+FabricaAzure ..> AzureMaquinaVirtual : <<cria>>
+FabricaAzure ..> AzureArmazenamento : <<cria>>
+FabricaAzure ..> AzureFilaMensagens : <<cria>>
+
+RecursoNuvem <|-- MaquinaVirtual
+RecursoNuvem <|-- Armazenamento
+RecursoNuvem <|-- FilaMensagens
+RecursoBase ..|> RecursoNuvem
+RecursoBase <|-- AwsMaquinaVirtual
+RecursoBase <|-- AwsArmazenamento
+RecursoBase <|-- AwsFilaMensagens
+RecursoBase <|-- AzureMaquinaVirtual
+RecursoBase <|-- AzureArmazenamento
+RecursoBase <|-- AzureFilaMensagens
+MaquinaVirtual <|.. AwsMaquinaVirtual
+MaquinaVirtual <|.. AzureMaquinaVirtual
+Armazenamento <|.. AwsArmazenamento
+Armazenamento <|.. AzureArmazenamento
+FilaMensagens <|.. AwsFilaMensagens
+FilaMensagens <|.. AzureFilaMensagens
+
+ProvisionadorAmbiente o--> FabricaRecursosNuvem : usa
+ProvisionadorAmbiente ..> ConfiguracaoAmbiente
+ProvisionadorAmbiente ..> RegistroAuditoria
+ProvisionadorAmbiente ..> AmbienteNuvem : cria
+ProvisionadorAmbiente ..> SolicitacaoAmbiente
+AmbienteNuvem o--> "1..*" MaquinaVirtual
+AmbienteNuvem o--> "1" Armazenamento
+AmbienteNuvem o--> "1" FilaMensagens
+Main ..> ProvisionadorAmbiente : cria (com a fábrica escolhida)
+Main ..> FabricaAws
+Main ..> FabricaAzure
+Main ..> SolicitacaoAmbiente
+@enduml
