@@ -1,0 +1,131 @@
+@startuml questao2
+title Questão 2 - Casa de Leilões Online (Observer + Strategy + Decorator)
+hide empty members
+skinparam classAttributeIconSize 0
+
+package "OBSERVER  (RNF01, RF03, RF04)" {
+  interface Sujeito <<Subject>> {
+    + acompanhar(i : Interessado)
+    + deixarDeAcompanhar(i : Interessado)
+    + notificarInteressados(l : Lance)
+  }
+  interface Interessado <<Observer>> {
+    + getNome() : String
+    + atualizar(lote : Lote, lance : Lance)
+  }
+  class Lote <<ConcreteSubject>> {
+    - nome : String
+    - lanceAtual : BigDecimal
+    - precoReserva : BigDecimal
+    - politicaComissao : PoliticaComissao
+    + darLance(autor : Interessado, valor : BigDecimal)
+    + encerrar() : Optional<Venda>
+    + trocarPolitica(p : PoliticaComissao)
+  }
+  note right of Lote
+    Só conhece as interfaces Interessado e
+    PoliticaComissao, nunca as classes concretas.
+    Não notifica o autor do lance.
+  end note
+  class Participante <<ConcreteObserver>>
+  class PainelLeiloeiro <<ConcreteObserver>> {
+    - maiorLance : Map
+    - totalLances : Map
+  }
+  class Auditor <<ConcreteObserver>> {
+    - registros : List<String>
+    + imprimirRegistros()
+  }
+  class Lance {
+    - valor : BigDecimal
+    - dataHora : LocalDateTime
+  }
+  class LanceRecusadoException
+}
+
+package "STRATEGY  (RNF02, RF06, RF07)" {
+  interface PoliticaComissao <<Strategy>> {
+    + calcular(valorVenda : BigDecimal) : BigDecimal
+  }
+  class ComissaoArte <<ConcreteStrategy>>
+  class ComissaoVeiculos <<ConcreteStrategy>>
+  class ComissaoImoveis <<ConcreteStrategy>>
+  class ComissaoEletronicos <<ConcreteStrategy>>
+  class Categoria {
+    - nome : String
+    - politica : PoliticaComissao
+  }
+  note right of Categoria
+    Cada categoria carrega sua regra padrão.
+    Nova categoria = nova instância com
+    nova política; Lote não muda.
+  end note
+}
+
+package "DECORATOR  (RNF03, RNF04, RF08, RF09)" {
+  interface ItemFatura <<Component>> {
+    + valorVenda() : BigDecimal
+    + linhas() : List<LinhaFatura>
+    + total() : BigDecimal
+  }
+  class Venda <<ConcreteComponent>> {
+    - nomeLote : String
+    - comprador : String
+    - valorVenda : BigDecimal
+    - comissao : BigDecimal
+    + imprimirAcerto()
+  }
+  abstract class ServicoAdicional <<Decorator>> {
+    # item : ItemFatura
+    # {abstract} descricao() : String
+    # {abstract} custo(valorVenda : BigDecimal) : BigDecimal
+  }
+  class SeguroTransporte <<ConcreteDecorator>>
+  class CertificadoAutenticidade <<ConcreteDecorator>>
+  class EmbalagemEspecial <<ConcreteDecorator>>
+  class EntregaExpressa <<ConcreteDecorator>>
+  class Fatura <<Utilitário>> {
+    + {static} imprimir(item : ItemFatura)
+  }
+  note right of Fatura
+    Trata venda com ou sem serviços
+    da mesma forma (RNF04).
+  end note
+}
+
+class Main <<Cliente>>
+
+Sujeito <|.. Lote
+Interessado <|.. Participante
+Interessado <|.. PainelLeiloeiro
+Interessado <|.. Auditor
+Lote ..> Interessado : notifica
+Lote ..> Lance
+Lote ..> LanceRecusadoException
+Lote o--> "1" PoliticaComissao : usa
+Lote o--> "1" Categoria
+Categoria o--> "1" PoliticaComissao
+
+PoliticaComissao <|.. ComissaoArte
+PoliticaComissao <|.. ComissaoVeiculos
+PoliticaComissao <|.. ComissaoImoveis
+PoliticaComissao <|.. ComissaoEletronicos
+
+ItemFatura <|.. Venda
+ItemFatura <|.. ServicoAdicional
+ServicoAdicional <|-- SeguroTransporte
+ServicoAdicional <|-- CertificadoAutenticidade
+ServicoAdicional <|-- EmbalagemEspecial
+ServicoAdicional <|-- EntregaExpressa
+ServicoAdicional o--> "1" ItemFatura : envolve
+
+Lote ..> Venda : encerrar()
+Fatura ..> ItemFatura
+
+Main ..> Lote
+Main ..> Participante
+Main ..> PainelLeiloeiro
+Main ..> Auditor
+Main ..> Categoria
+Main ..> ServicoAdicional
+@enduml
